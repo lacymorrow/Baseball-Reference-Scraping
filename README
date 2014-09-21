@@ -1,0 +1,7 @@
+# Python Baseball-Reference.com Scraper
+
+For a research project. Install beautiful soup (`pip install beautifulsoup`) and then invoke with `python baseball_reference.py`. 
+
+Subject to break at any time for, literally, no reason.
+
+Please don't sue me. Email me instead, I mean no harm.
