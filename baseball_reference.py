@@ -1,11 +1,8 @@
 #! /usr/bin/python
 
-import urllib
+import urllib, csv, re, itertools, sys
 from BeautifulSoup import BeautifulSoup
-import re
-import itertools
 from string import ascii_letters
-import sys
 
 PLAYERS_PAGE_TEMPLATE='http://www.baseball-reference.com/players/%(letter)s/'
 
@@ -40,9 +37,68 @@ STANDARD_BATTING_COLUMNS=(
 'Pos',
 'Awards'
 )
+states = {
+        'AK': 'Alaska',
+        'AL': 'Alabama',
+        'AR': 'Arkansas',
+        'AS': 'American Samoa',
+        'AZ': 'Arizona',
+        'CA': 'California',
+        'CO': 'Colorado',
+        'CT': 'Connecticut',
+        'DC': 'District of Columbia',
+        'DE': 'Delaware',
+        'FL': 'Florida',
+        'GA': 'Georgia',
+        'GU': 'Guam',
+        'HI': 'Hawaii',
+        'IA': 'Iowa',
+        'ID': 'Idaho',
+        'IL': 'Illinois',
+        'IN': 'Indiana',
+        'KS': 'Kansas',
+        'KY': 'Kentucky',
+        'LA': 'Louisiana',
+        'MA': 'Massachusetts',
+        'MD': 'Maryland',
+        'ME': 'Maine',
+        'MI': 'Michigan',
+        'MN': 'Minnesota',
+        'MO': 'Missouri',
+        'MP': 'Northern Mariana Islands',
+        'MS': 'Mississippi',
+        'MT': 'Montana',
+        'NA': 'National',
+        'NC': 'North Carolina',
+        'ND': 'North Dakota',
+        'NE': 'Nebraska',
+        'NH': 'New Hampshire',
+        'NJ': 'New Jersey',
+        'NM': 'New Mexico',
+        'NV': 'Nevada',
+        'NY': 'New York',
+        'OH': 'Ohio',
+        'OK': 'Oklahoma',
+        'OR': 'Oregon',
+        'PA': 'Pennsylvania',
+        'PR': 'Puerto Rico',
+        'RI': 'Rhode Island',
+        'SC': 'South Carolina',
+        'SD': 'South Dakota',
+        'TN': 'Tennessee',
+        'TX': 'Texas',
+        'UT': 'Utah',
+        'VA': 'Virginia',
+        'VI': 'Virgin Islands',
+        'VT': 'Vermont',
+        'WA': 'Washington',
+        'WI': 'Wisconsin',
+        'WV': 'West Virginia',
+        'WY': 'Wyoming'
+}
 
 
-def url_to_beautiful_soup(url): 
+def url_to_beautiful_soup(url):
     url = urllib.urlopen(url)
     soup = BeautifulSoup(''.join(url.readlines()))
     return soup
@@ -57,7 +113,7 @@ def find_batting_standard_table(soup):
             if table['id'] == 'batting_standard':
                 return table
         except KeyError:
-            '''table does not have an "id" attribute, oh-well, the 
+            '''table does not have an "id" attribute, oh-well, the
             table we're looking for does'''
             pass
     #exception_string = 'Did not find "batting_standard" table in %s' % soup
@@ -95,7 +151,7 @@ def player_page_links(players_page_url):
     soup = BeautifulSoup(''.join(f))
     page_content = soup.findAll('div', id='page_content')[0]
     player_blocks = page_content.findAll('blockquote')
-    link_elements = (player_block.findAll('a') for 
+    link_elements = (player_block.findAll('a') for
                     player_block in player_blocks)
     link_elements = itertools.chain(*link_elements)
 
@@ -116,7 +172,7 @@ def long_player_name_from_soup(soup):
     '''Gets a more specific name from the player page to avoid duplicate names.
 
     '''
-    
+
     info_box = soup.findAll('div', id='info_box')[0]
     info_table = info_box.findAll('table')
     if info_table:
@@ -128,14 +184,29 @@ def long_player_name_from_soup(soup):
 
     return long_name_element.text
 
+def short_player_name_from_soup(soup):
+    short_name_element = soup.findAll('span', id='player_name')[0]
+    return short_name_element.text
+
+def player_salary_from_soup(soup):
+    salaries = soup.findAll('table', id='salaries')[0].findAll('tr')[1:]
+    player_salary = ''
+    for row in salaries:
+        r = row.findAll('td')
+        if len(r) > 3:
+            player_salary =  player_salary + r[0].text + ' ' + r[3].text + '\n'
+    return player_salary
+
 def get_all_player_stats():
     for player_name, player_page_url in get_all_player_page_links():
 
         soup = url_to_beautiful_soup(player_page_url)
         batting_stats = batting_stats_from_soup(soup)
+        player_salary = player_salary_from_soup(soup)
         long_player_name = long_player_name_from_soup(soup)
+        short_player_name = short_player_name_from_soup(soup)
 
-        yield long_player_name, batting_stats
+        yield long_player_name, player_salary
 
 class BaseballReferenceParsingException(Exception):
     def __init__(self, value):
@@ -145,9 +216,40 @@ class BaseballReferenceParsingException(Exception):
             return repr(self.value)
 
 def main():
-    
-    for player, stats in get_all_player_stats():
-        print player
+
+    # for player, stats in get_all_player_stats():
+    #     print player + stats
+
+
+    csv_list = [
+        [
+            "Player Name",
+            "Recommended Top 20 for Team",
+            "2010 Team",
+            "Position",
+            "Position Code",
+            "Age",
+            "Hometown",
+            "Nationality",
+            "Country Number",
+            "Race",
+            "2010 Salary",
+            "2010 WAR",
+            "MLB Seasons Heading into 2010",
+            "Full Seasons with Team Heading into 2010",
+            "2009 Team",
+            "2009 Wins for 2010 Team",
+            "2009 Wins for 2009 Team",
+            "2010 All-Star",
+            "Trips to the DL 2010",
+            "Days on the DL 2010"
+        ],
+        [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1]
+    ]
+
+    with open('test.csv', 'w') as fp:
+        a = csv.writer(fp, delimiter=',')
+        a.writerows(csv_list)
 
     return 0
 
