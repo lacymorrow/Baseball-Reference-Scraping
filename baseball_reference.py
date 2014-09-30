@@ -185,7 +185,7 @@ def get_long_player_name(soup):
 
     '''
 
-    info_box = soup.findAll('div', id='info_box')[0]
+    info_box = soup.find(id='info_box')
     info_table = info_box.findAll('table')
     if info_table:
         long_name_element = info_table[0].findAll('p')[1]
@@ -195,27 +195,37 @@ def get_long_player_name(soup):
     return long_name_element.text
 
 def get_short_player_name(soup):
-    short_name_element = soup.findAll('span', id='player_name')[0]
+    short_name_element = soup.find(id='player_name')
     return short_name_element.text
 
 def get_age(soup):
     return ''
 
 def get_current_team(soup):
-    short_name_element = soup.findAll('span', id='player_name')[0]
-    return short_name_element.text
+    teams = soup.find(id='batting_standard').findAll('tr')[1:]
+    current_team = ''
+    for row in teams:
+        r = row.findAll('td')
+        print r[2].text
+        if len(r) > 2:
+            if current_team == '':
+                current_team =  r[2].text
+            else:
+                current_team += ', ' + r[2].text
+    current_team = None
+    return current_team
 
 def get_current_salary(soup):
-    salaries = soup.findAll('table', id='salaries')[0].findAll('tr')[1:]
-    player_salary = ''
-    for row in salaries:
-        r = row.findAll('td')
-        if len(r) > 3 and r[0].text == YEAR:
-            player_salary =  r[3].text
+    try:
+        salaries = soup.find(id='salaries').findAll('tr')[1:]
+        player_salary = ''
+        for row in salaries:
+            r = row.findAll('td')
+            if r[0].text == str(YEAR) and len(r) > 3 and r[0].text.isdigit():
+                player_salary =  r[3].text
+    except:
+        player_salary = None
     return player_salary
-
-def get_current_team(soup):
-    return ''
 
 def get_prior_team(soup):
     return ''
@@ -230,7 +240,12 @@ def get_nationality(soup):
     return ''
 
 def get_war(soup):
-    return ''
+    try:
+        war = soup.find(id='batting_value').findAll('tfoot')[0].findAll('td')[14].text
+    except:
+        war = None
+        pass
+    return war
 
 def get_total_seasons(soup):
     return ''
@@ -248,26 +263,29 @@ def get_is_all_star(soup):
     return ''
 
 def get_all_player_stats():
+    count = 0
     for player_name, player_page_url in get_all_player_page_links():
-
-        soup = url_to_beautiful_soup(player_page_url)
-        batting_stats = get_batting_stats(soup)
-        player_salary = get_current_salary(soup)
-        long_player_name = get_long_player_name(soup)
-        short_player_name = get_short_player_name(soup)
-        age = get_age(soup)
-        current_team = get_current_team(soup)
-        position = get_position(soup)
-        hometown = get_hometown(soup)
-        nationality = get_nationality(soup)
-        war = get_war(soup)
-        total_seasons = get_total_seasons(soup)
-        is_multiple_teams = get_is_multiple_teams(soup)
-        prior_team = get_prior_team(soup)
-        prior_year_current_team_wins = get_prior_year_current_team_wins(soup)
-        prior_year_wins = get_prior_year_wins(soup)
-        is_all_star = get_is_all_star(soup)
-
+        if count < 100:
+            count += 1
+            soup = url_to_beautiful_soup(player_page_url)
+            batting_stats = get_batting_stats(soup)
+            player_salary = get_current_salary(soup)
+            long_player_name = get_long_player_name(soup)
+            short_player_name = get_short_player_name(soup)
+            age = get_age(soup)
+            current_team = get_current_team(soup)
+            position = get_position(soup)
+            hometown = get_hometown(soup)
+            nationality = get_nationality(soup)
+            war = get_war(soup)
+            total_seasons = get_total_seasons(soup)
+            is_multiple_teams = get_is_multiple_teams(soup)
+            prior_team = get_prior_team(soup)
+            prior_year_current_team_wins = get_prior_year_current_team_wins(soup)
+            prior_year_wins = get_prior_year_wins(soup)
+            is_all_star = get_is_all_star(soup)
+        else:
+            yield {}
 
         yield {
             'name': short_player_name,
@@ -334,10 +352,9 @@ def main():
             '', # Trips to DL
             ''  # Days on DL
         ])
-        with open('output.csv', 'w') as fp:
+        with open('test.csv', 'w') as fp:
             a = csv.writer(fp, delimiter=',')
             a.writerows(csv_list)
-
 
     with open('test.csv', 'w') as fp:
         a = csv.writer(fp, delimiter=',')
