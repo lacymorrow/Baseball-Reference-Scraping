@@ -4,7 +4,7 @@ import urllib, csv, re, itertools, sys, time
 from BeautifulSoup import BeautifulSoup
 from string import ascii_letters
 
-YEAR = 2008
+YEAR = 2014
 BIRTHDATE_VS_AGE = False
 
 PLAYERS_PAGE_TEMPLATE='http://www.baseball-reference.com/players/%(letter)s/'
@@ -249,10 +249,20 @@ def get_prior_team(soup, year):
     # prior_team = None
     return prior_team
 
-def get_position(soup, year):
+def get_position_and_war(soup, year):
     position = ''
+    war = ''
     position = soup.find(attrs={"itemprop" : "role"})
-    return position.contents[0]
+    try:
+        if position.contents[0] == 'Pitcher':
+            find_id = 'pitching_value.' + str(year)
+            war = soup.find(id=find_id).findAll('td')[18].text
+        else:
+            find_id = 'batting_value.' + str(year)
+            war = soup.find(id=find_id).findAll('td')[15].text
+    except:
+        pass
+    return position.contents[0], war
 
 def get_nationality(soup, year):
     flag = ''
@@ -260,19 +270,32 @@ def get_nationality(soup, year):
     flag = re.search('(\w+)\s*$', flag['class'], re.IGNORECASE)
     return flag.group(0)
 
+def get_position(soup, year):
+    position = ''
+    position = soup.find(attrs={"itemprop" : "role"})
+    return position.contents[0]
+
 def get_war(soup, year):
+    war = ''
     try:
-        war = soup.find(id='batting_value').findAll('tfoot')[0].findAll('td')[13].text
+        war = soup.find(id='batting_value').find('tfoot').findAll('td')[13].text
     except:
-        war = None
         pass
     return war
 
+# table#batting_value tfoot tr.stat_total th[0]
 def get_total_seasons(soup, year):
-    return '*'
+    seasons = ''
+    try:
+        seasons = soup.find(id='batting_value').find('tfoot').findAll('td')[0].text
+    except:
+        pass
 
-def get_is_multiple_teams(soup, year):
-    return '*'
+    try:
+        is_multiple_teams = True if len(soup.find(id='batting_value').find('tfoot').findAll('tr')) > 1 else False
+    except:
+        is_multiple_teams = False
+    return seasons, is_multiple_teams
 
 def get_prior_year_current_team_wins(soup, year):
     return '*'
@@ -280,35 +303,39 @@ def get_prior_year_current_team_wins(soup, year):
 def get_prior_year_wins(soup, year):
     return '*'
 
+# Does the link exist
 def get_is_all_star(soup, year):
-    return '*'
+    all_star = ''
+    links = soup.findAll("a", {"href" : "/allstar/"})
+    for l in links:
+        try:
+            if l.text == 'All-Star Games':
+                all_star = 'True'
+        except:
+            pass
+    return all_star
 
-def get_all_player_stats():
+def get_all_player_stats(skip):
     count = 0
     for player_name, player_page_url in get_all_player_page_links():
-        for year in range(YEAR-1,YEAR+1):
-            if count < 100:
-                count += 1
-                soup = url_to_beautiful_soup(player_page_url)
-                current_team = get_current_team(soup, year)
-                if current_team:
-                    batting_stats = get_batting_stats(soup)
-                    player_salary = get_current_salary(soup, year)
-                    long_player_name = get_long_player_name(soup, year)
-                    short_player_name = get_short_player_name(soup, year)
-                    age_hometown = get_age_hometown(soup, year)
-                    position = get_position(soup, year)
-                    nationality = get_nationality(soup, year)
-                    war = get_war(soup, year)
-                    total_seasons = get_total_seasons(soup, year)
-                    is_multiple_teams = get_is_multiple_teams(soup, year)
-                    prior_team = get_prior_team(soup, year)
-                    prior_year_current_team_wins = get_prior_year_current_team_wins(soup, year)
-                    prior_year_wins = get_prior_year_wins(soup, year)
-                    is_all_star = get_is_all_star(soup, year)
-            else:
-                yield {}
+        year = YEAR
+        if count >= skip:
+            soup = url_to_beautiful_soup(player_page_url)
+            current_team = get_current_team(soup, year)
             if current_team:
+                batting_stats = get_batting_stats(soup)
+                player_salary = get_current_salary(soup, year)
+                long_player_name = get_long_player_name(soup, year)
+                short_player_name = get_short_player_name(soup, year)
+                age_hometown = get_age_hometown(soup, year)
+                position, war = get_position_and_war(soup, year)
+                nationality = get_nationality(soup, year)
+                # war = get_war(soup, year)
+                total_seasons, is_multiple_teams = get_total_seasons(soup, year)
+                prior_team = get_prior_team(soup, year)
+                prior_year_current_team_wins = get_prior_year_current_team_wins(soup, year)
+                prior_year_wins = get_prior_year_wins(soup, year)
+                is_all_star = get_is_all_star(soup, year)
                 yield {
                     'year': year,
                     'name': short_player_name,
@@ -328,6 +355,7 @@ def get_all_player_stats():
                 }
             else:
                 yield {}
+        count += 1
 
 def main():
     csv_list = [
@@ -354,37 +382,44 @@ def main():
             "Days on the DL " + str(YEAR)
         ]
     ]
-    for s in get_all_player_stats():
+    count = 0
+    skip = count
+    for s in get_all_player_stats(skip):
         if(s and s['year'] == YEAR):
             csv_list.append([
-                s['name'],
+                s['name'].encode('utf8'),
                 '', # Top 20
-                s['current_team'],
-                s['position'],
+                s['current_team'].encode('utf8'),
+                s['position'].encode('utf8'),
                 '', # Position Code
-                s['age'],
-                s['hometown'],
-                s['nationality'],
+                str(s['age']),
+                s['hometown'].encode('utf8'),
+                s['nationality'].encode('utf8'),
                 '', # Country Number
                 '', # Race
-                s['salary'],
-                s['war'],
-                s['total_seasons'],
-                s['total_seasons_none_if_multiple_teams'],
-                s['prior_team'],
-                s['prior_year_current_team_wins'],
-                s['prior_year_wins'],
-                s['is_all_star'],
+                str(s['salary']),
+                s['war'].encode('utf8'),
+                s['total_seasons'].encode('utf8'),
+                s['total_seasons_none_if_multiple_teams'].encode('utf8'),
+                s['prior_team'].encode('utf8'),
+                s['prior_year_current_team_wins'].encode('utf8'),
+                s['prior_year_wins'].encode('utf8'),
+                s['is_all_star'].encode('utf8'),
                 '', # Trips to DL
                 ''  # Days on DL
             ])
-            with open('test.csv', 'w') as fp:
-                a = csv.writer(fp, delimiter=',')
-                a.writerows(csv_list)
-
-    with open('test.csv', 'w') as fp:
-        a = csv.writer(fp, delimiter=',')
-        a.writerows(csv_list)
+            print s['name']
+        if(count % 100 == 0):
+            print 'printing'
+            with open('test' + str(YEAR) + '.csv', 'w') as fp:
+                outfile = csv.writer(fp, delimiter=',')
+                outfile.writerows(csv_list)
+        else:
+            print count
+        count += 1
+    with open('test' + str(YEAR) + '.csv', 'w') as fp:
+        outfile = csv.writer(fp, delimiter=',')
+        outfile.writerows(csv_list)
 
     return 0
 
