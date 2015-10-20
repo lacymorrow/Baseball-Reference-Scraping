@@ -1,5 +1,9 @@
 # Python Baseball-Reference.com Scraper
 
+I added a BUNCH of extra searches from andewkittredge, but all initial credit goes to his fork :)
+
+From him:
+
 For a research project. Install beautiful soup (`pip install beautifulsoup`) and then invoke with `python baseball_reference.py`. 
 
 Subject to break at any time for, literally, no reason.
